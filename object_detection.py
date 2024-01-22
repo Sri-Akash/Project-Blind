@@ -8,7 +8,8 @@ def main():
     modelPath = os.path.join('frozen_inference_graph.pb')
     classesPath = os.path.join('labels.txt')
 
-    Detector(videoPath, configPath, modelPath, classesPath)
+    detector = Detector(videoPath, configPath, modelPath, classesPath)
+    detector.onVideo()
 
 
 if __name__ == '__main__':
