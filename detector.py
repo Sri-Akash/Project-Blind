@@ -1,6 +1,6 @@
 import cv2
 import numpy as np
-import time
+
 
 class Detector:
     def __init__(self, videoPath, configPath, modelPath, classesPath):
@@ -52,7 +52,7 @@ class Detector:
 
                     bbox = bboxs[np.squeeze(bboxIdx[i])]
                     classConfidence = confidences[np.squeeze(bboxIdx[i])]
-                    classLabelID = np.squeeze(classLabelIDs[np.squeeze(bboxIdx[i])])
+                    classLabelID = np.squeeze(classLabelIDs[int(np.squeeze(bboxIdx[i]))])
                     classLabel = self.classesList[classLabelID]
                     classColor = [int(c) for c in self.colorList[classLabelID]]
 
