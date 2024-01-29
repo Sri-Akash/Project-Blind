@@ -29,7 +29,7 @@ class Detector:
 
         #print(self.classesList)
 
-    def onVideo(self):
+    '''def onVideo(self):
         cap = cv2.VideoCapture(self.videoPath)
 
         if cap.isOpened() == False:
@@ -69,4 +69,50 @@ class Detector:
                 break
 
             (success, image) = cap.read()
+        cv2.destroyAllWindows()'''
+
+    def onVideo(self):
+        cap = cv2.VideoCapture(self.videoPath)
+
+        if not cap.isOpened():
+            print("Error opening file ...")
+            return
+
+        success, image = cap.read()
+
+        while success:
+            classLabelIDs, confidences, bboxs = self.net.detect(image, confThreshold=0.4)
+
+            if classLabelIDs is not None and len(self.classesList) > 0:
+                bboxs = list(bboxs)
+                confidences = list(np.array(confidences).reshape(1, -1)[0])
+                confidences = list(map(float, confidences))
+
+                bboxIdx = cv2.dnn.NMSBoxes(bboxs, confidences, score_threshold=0.5, nms_threshold=0.2)
+
+                if len(bboxIdx) != 0:
+                    for i in range(0, len(bboxIdx)):
+                        bbox = bboxs[np.squeeze(bboxIdx[i])]
+                        classConfidence = confidences[np.squeeze(bboxIdx[i])]
+                        classLabelID = int(np.squeeze(classLabelIDs[int(np.squeeze(bboxIdx[i]))]))
+
+                        if 0 <= classLabelID < len(self.classesList):
+                            classLabel = self.classesList[classLabelID]
+                            classColor = [int(c) for c in self.colorList[classLabelID]]
+
+                            displayText = "{}:{:.2f}".format(classLabel, classConfidence)
+
+                            x, y, w, h = bbox
+
+                            cv2.rectangle(image, (x, y), (x + w, y + h), color=classColor, thickness=1)
+                            cv2.putText(image, displayText, (x, y - 10), cv2.FONT_HERSHEY_PLAIN, 1, classColor, 2)
+
+            cv2.imshow("Result", image)
+
+            key = cv2.waitKey(1) & 0xFF
+            if key == ord("q"):
+                break
+            success, image = cap.read()
         cv2.destroyAllWindows()
+
+
