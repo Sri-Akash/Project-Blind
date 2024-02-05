@@ -1,41 +1,37 @@
 import cv2
-import pyttsx3
 
-# img = cv2.imread('Images/all.jpg')
+class ObjectDetector:
+    def __init__(self, cascade_path):
+        self.cascade = cv2.CascadeClassifier(cascade_path)
 
-cap = cv2.VideoCapture(0)
-cap.set(3, 640)
-cap.set(4, 480)
+    def detect_objects(self, image):
+        gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+        objects = self.cascade.detectMultiScale(gray, scaleFactor=1.1, minNeighbors=5, minSize=(30, 30))
+        return objects
 
-classNames = []
-classFile = 'labels.txt'
-with open(classFile, 'rt') as f:
-    classNames = f.read().rstrip('\n').split('\n')
+def main():
+    cascade_path = "haarcascade_frontalface_default.xml"  # Replace with the actual path
+    object_detector = ObjectDetector(cascade_path)
 
-configPath = 'ssd_mobilenet_v3_large_coco_2020_01_14.pbtxt'
-weightsPath = 'frozen_inference_graph.pb'
+    cap = cv2.VideoCapture(0)  # Use 0 for the default camera
 
-net = cv2.dnn.DetectionModel(weightsPath, configPath)
-net.setInputSize(320, 320)
-net.setInputScale(1.0 / 127.5)
-net.setInputMean((127.5, 127.5, 127.5))
-net.setInputSwapRB(True)
-while True:
-    success, img = cap.read()
-    classIds, confs, bbox = net.detect(img, confThreshold=0.5)
-    print(classIds, bbox)
-    if len(classIds) != 0:
-        for classId, confidence, box in zip(classIds.flatten(), confs.flatten(), bbox):
-            cv2.rectangle(img, box, color=(255, 255, 255), thickness=1)
-            if 0 <= classId - 1 < len(classNames):
-                cv2.putText(img, classNames[classId - 1], (box[0] + 10, box[1] + 30), cv2.FONT_HERSHEY_COMPLEX,
-                            1,
-                            (255, 255, 255), 1, cv2.LINE_AA)
-            else:
-                print("Invalid classId or classNames list is not long enough.")
+    while True:
+        ret, frame = cap.read()
+        if not ret:
+            break
 
-    cv2.imshow('Output', img)
-    key = cv2.waitKey(1)
-    if key == 27:
-        break
-cv2.destroyAllWindows()
+        objects = object_detector.detect_objects(frame)
+
+        for (x, y, w, h) in objects:
+            cv2.rectangle(frame, (x, y), (x+w, y+h), (0, 255, 0), 2)
+
+        cv2.imshow("Object Detection", frame)
+
+        if cv2.waitKey(1) & 0xFF == ord('q'):
+            break
+
+    cap.release()
+    cv2.destroyAllWindows()
+
+if __name__ == "__main__":
+    main()
