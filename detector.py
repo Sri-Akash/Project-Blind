@@ -35,7 +35,6 @@ class Detector:
         self.colorList = np.random.uniform(low=8, high=255, size=(len(self.classesList), 3))
 
     def Focal_Length_Finder(self, measured_distance, real_width, width_in_rf_image):
-        # finding the focal length
         focal_length = (width_in_rf_image * measured_distance) / real_width
         return focal_length
 
@@ -97,7 +96,6 @@ class Detector:
                                 cv2.FONT_HERSHEY_PLAIN, 0.6, GREEN, 2)
 
                             # Speak the distance
-                            self.speak_text(f"{classLabel} {round(Distance, 2)} centimeters away from you")
 
             cv2.imshow("Result", image)
             key = cv2.waitKey(1) & 0xFF

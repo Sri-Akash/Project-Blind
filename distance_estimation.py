@@ -1,111 +1,140 @@
 import cv2
 import numpy as np
+import pyttsx3
+import threading
 
-# Distance from camera to object measured in centimeters
+# Constants and colors
 Known_distance = 76.2
-
-# Width of the object in the real world or Object Plane (centimeters)
 Known_width = 14.3
-
-# Colors
 GREEN = (0, 255, 0)
 RED = (0, 0, 255)
-WHITE = (255, 255, 255)
 BLACK = (0, 0, 0)
-
-# Defining the fonts
 fonts = cv2.FONT_HERSHEY_COMPLEX
-
-# Load the MobileNet SSD model
-net = cv2.dnn.readNetFromCaffe("MobileNetSSD_deploy.prototxt.txt", "MobileNetSSD_deploy.caffemodel")
+face_detector = cv2.CascadeClassifier("haarcascade_frontalface_default.xml")
 
 
-# Function to find focal length
+# Focal length finder function
 def Focal_Length_Finder(measured_distance, real_width, width_in_rf_image):
     focal_length = (width_in_rf_image * measured_distance) / real_width
     return focal_length
 
 
-# Function to find distance
+# Distance estimation function
 def Distance_finder(Focal_Length, real_object_width, object_width_in_frame):
     distance = (real_object_width * Focal_Length) / object_width_in_frame
     return distance
 
 
-# Function to find object width in frame
-def object_data(frame):
-    object_width = 0
-    # Convert the frame to grayscale
-    gray_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-    # Detect objects using MobileNet SSD
-    blob = cv2.dnn.blobFromImage(frame, 0.007843, (300, 300), 127.5)
+# Object detection function
+def object_detection(image):
+    height, width, _ = image.shape
+
+    blob = cv2.dnn.blobFromImage(image, 0.00392, (416, 416), (0, 0, 0), True, crop=False)
     net.setInput(blob)
-    detections = net.forward()
-    # Loop through the detections
-    for i in range(detections.shape[2]):
-        confidence = detections[0, 0, i, 2]
-        if confidence > 0.2:
-            class_id = int(detections[0, 0, i, 1])
-            if class_id == 15:  # Class ID 15 corresponds to "person" in MobileNet SSD
-                object_width = int(detections[0, 0, i, 3] * frame.shape[1])
-                break
-    return object_width
+    outs = net.forward(layer_names)
+
+    class_ids = []
+    confidences = []
+    boxes = []
+
+    for out in outs:
+        for detection in out:
+            scores = detection[5:]
+            class_id = np.argmax(scores)
+            confidence = scores[class_id]
+            if confidence > 0.5:  # Adjust confidence threshold as needed
+                center_x = int(detection[0] * width)
+                center_y = int(detection[1] * height)
+                w = int(detection[2] * width)
+                h = int(detection[3] * height)
+
+                x = int(center_x - w / 2)
+                y = int(center_y - h / 2)
+
+                class_ids.append(class_id)
+                confidences.append(float(confidence))
+                boxes.append([x, y, w, h])
+
+    # Keep only the detection with the highest confidence
+    if boxes:
+        max_confidence_index = np.argmax(confidences)
+        x, y, w, h = boxes[max_confidence_index]
+
+        cv2.rectangle(image, (x, y), (x + w, y + h), GREEN, 2)
+
+        object_width = w
+        distance = Distance_finder(Focal_length_found, Known_width, object_width)
+
+        cv2.line(image, (30, 30), (230, 30), RED, 32)
+        cv2.line(image, (30, 30), (230, 30), BLACK, 28)
+
+        cv2.putText(image, f"{classes[class_ids[max_confidence_index]]} {round(distance, 2)} CM", (30, 35),
+                    fonts, 0.6, GREEN, 2)
+
+        # Speak the distance in a separate thread
+        threading.Thread(target=speak_distance, args=(classes[class_ids[max_confidence_index]], distance)).start()
+
+    return image
+
+# Function to speak the distance
 
 
-# Reading reference image from directory
-ref_image = cv2.imread("Images/hotel.jpg")
-# Find the object width(pixels) in the reference image
-ref_image_object_width = object_data(ref_image)
+def speak_distance(object_class, distance):
+    engine = pyttsx3.init()
+    engine.say(f"{object_class} is {round(distance, 2)} centimeters away from you.")
+    engine.runAndWait()
+    engine.stop()
 
-# Get the focal length by calling "Focal_Length_Finder"
-Focal_length_found = Focal_Length_Finder(
-    Known_distance, Known_width, ref_image_object_width
-)
 
-# Show the reference image
-cv2.imshow("ref_image", ref_image)
+# Function for face detection
+def face_data(image):
+    face_width = 0
 
-# Initialize the camera object
+    gray_image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+    faces = face_detector.detectMultiScale(gray_image, 1.3, 5)
+
+    for (x, y, h, w) in faces:
+        cv2.rectangle(image, (x, y), (x + w, y + h), GREEN, 2)
+        face_width = w
+
+    return face_width
+
+
+# Read reference image
+ref_image = cv2.imread("ReferenceImages/image1.png")
+ref_image_face_width = face_data(ref_image)
+Focal_length_found = Focal_Length_Finder(Known_distance, Known_width, ref_image_face_width)
+
+# Load YOLOv4-tiny model
+net = cv2.dnn.readNet('yolov4-tiny.weights', 'yolov4-tiny.cfg')
+classes = []
+with open("coco.names", "r") as f:
+    classes = [line.strip() for line in f.readlines()]
+
+layer_names = net.getUnconnectedOutLayersNames()
+
+# Initialize camera
 cap = cv2.VideoCapture(0)
 
 while True:
-    # Reading the frame from the camera
     _, frame = cap.read()
 
-    # Calling object_data function to find the width of the object(pixels) in the frame
-    object_width_in_frame = object_data(frame)
+    face_width_in_frame = face_data(frame)
+    if face_width_in_frame != 0:
+        Distance = Distance_finder(Focal_length_found, Known_width, face_width_in_frame)
 
-    # Check if the object is detected
-    if object_width_in_frame != 0:
-        # Finding the distance by calling function
-        Distance = Distance_finder(
-            Focal_length_found, Known_width, object_width_in_frame
-        )
-
-        # Draw line as background of text
         cv2.line(frame, (30, 30), (230, 30), RED, 32)
         cv2.line(frame, (30, 30), (230, 30), BLACK, 28)
 
-        # Drawing Text on the screen
-        cv2.putText(
-            frame,
-            f"Distance: {round(Distance, 2)} CM",
-            (30, 35),
-            fonts,
-            0.6,
-            GREEN,
-            2,
-        )
+        cv2.putText(frame, f"Distance: {round(Distance, 2)} CM", (30, 35), fonts, 0.6, GREEN, 2)
 
-    # Show the frame on the screen
+    # Call object detection function
+    frame = object_detection(frame)
+
     cv2.imshow("frame", frame)
 
-    # Quit the program if you press 'q' on the keyboard
     if cv2.waitKey(1) == ord("q"):
         break
 
-# Closing the camera
 cap.release()
-
-# Closing the windows that are opened
 cv2.destroyAllWindows()
