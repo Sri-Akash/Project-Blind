@@ -4,7 +4,7 @@ import pyttsx3
 from PIL import Image
 
 # Tesseract configuration parameters
-myconfig = r"--psm 6 --oem 3 -l eng"
+myconfig = r"--psm 6 --oem 3"
 
 # Pyttsx3 configuration parameters
 engine = pyttsx3.init()
@@ -13,7 +13,7 @@ engine.setProperty('voice', voices[1].id)  # Change the index to select a differ
 engine.setProperty('rate', 150)  # Adjust the speaking rate
 engine.setProperty('volume', 1.0)  # Adjust the speaking volume
 
-video = cv2.VideoCapture(0)
+video = cv2.VideoCapture(1)
 
 captured_image = None
 

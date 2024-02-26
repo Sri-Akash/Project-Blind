@@ -114,7 +114,7 @@ with open("coco.names", "r") as f:
 layer_names = net.getUnconnectedOutLayersNames()
 
 # Initialize camera
-cap = cv2.VideoCapture(0)
+cap = cv2.VideoCapture(1)
 
 while True:
     _, frame = cap.read()
