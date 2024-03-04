@@ -3,7 +3,6 @@ import numpy as np
 import pyttsx3
 import threading
 
-# Constants and colors
 Known_distance = 76.2
 Known_width = 14.3
 GREEN = (0, 255, 0)
@@ -13,19 +12,16 @@ fonts = cv2.FONT_HERSHEY_COMPLEX
 face_detector = cv2.CascadeClassifier("haarcascade_frontalface_default.xml")
 
 
-# Focal length finder function
 def Focal_Length_Finder(measured_distance, real_width, width_in_rf_image):
     focal_length = (width_in_rf_image * measured_distance) / real_width
     return focal_length
 
 
-# Distance estimation function
 def Distance_finder(Focal_Length, real_object_width, object_width_in_frame):
     distance = (real_object_width * Focal_Length) / object_width_in_frame
     return distance
 
 
-# Object detection function
 def object_detection(image):
     height, width, _ = image.shape
 
@@ -42,7 +38,7 @@ def object_detection(image):
             scores = detection[5:]
             class_id = np.argmax(scores)
             confidence = scores[class_id]
-            if confidence > 0.5:  # Adjust confidence threshold as needed
+            if confidence > 0.5:
                 center_x = int(detection[0] * width)
                 center_y = int(detection[1] * height)
                 w = int(detection[2] * width)
@@ -55,7 +51,6 @@ def object_detection(image):
                 confidences.append(float(confidence))
                 boxes.append([x, y, w, h])
 
-    # Keep only the detection with the highest confidence
     if boxes:
         max_confidence_index = np.argmax(confidences)
         x, y, w, h = boxes[max_confidence_index]
@@ -71,12 +66,9 @@ def object_detection(image):
         cv2.putText(image, f"{classes[class_ids[max_confidence_index]]} {round(distance, 2)} CM", (30, 35),
                     fonts, 0.6, GREEN, 2)
 
-        # Speak the distance in a separate thread
         threading.Thread(target=speak_distance, args=(classes[class_ids[max_confidence_index]], distance)).start()
 
     return image
-
-# Function to speak the distance
 
 
 def speak_distance(object_class, distance):
@@ -86,7 +78,6 @@ def speak_distance(object_class, distance):
     engine.stop()
 
 
-# Function for face detection
 def face_data(image):
     face_width = 0
 
@@ -100,12 +91,11 @@ def face_data(image):
     return face_width
 
 
-# Read reference image
 ref_image = cv2.imread("ReferenceImages/image1.png")
 ref_image_face_width = face_data(ref_image)
 Focal_length_found = Focal_Length_Finder(Known_distance, Known_width, ref_image_face_width)
 
-# Load YOLOv4-tiny model
+
 net = cv2.dnn.readNet('yolov4-tiny.weights', 'yolov4-tiny.cfg')
 classes = []
 with open("coco.names", "r") as f:
@@ -113,7 +103,6 @@ with open("coco.names", "r") as f:
 
 layer_names = net.getUnconnectedOutLayersNames()
 
-# Initialize camera
 cap = cv2.VideoCapture(0)
 
 while True:
@@ -128,7 +117,6 @@ while True:
 
         cv2.putText(frame, f"Distance: {round(Distance, 2)} CM", (30, 35), fonts, 0.6, GREEN, 2)
 
-    # Call object detection function
     frame = object_detection(frame)
 
     cv2.imshow("frame", frame)
